@@ -1,18 +1,15 @@
+import hashlib
 import json
 import uuid
 from flask import Flask, request
 import pymongo
-import random
-from gevent import monkey
-
-monkey.patch_all()
-
 
 VERSION = "0.0.3-release"
 WIDTH = 31
-
+mongo = pymongo.MongoClient("mongodb://db:27017")
 app = Flask(__name__)
-
+db = mongo['db']
+userdb = db['users']
 
 class match:
     def __init__(self, gamerId):
@@ -167,8 +164,16 @@ class match:
                         return "white"
         return False
 
-
 matches = []
+
+def verify(userId,password):
+    data = userdb.find_one({"username":userId})
+    if not data:
+        return 0
+    if data["hash"]==hashlib.md5(password.encode()).hexdigest():
+        return 1
+    else:
+        return 0
 
 
 @app.route('/')
@@ -180,12 +185,18 @@ def version():
 def api(name):
     if name == "newGame":
         userId = request.form.get('userId')
+        password = request.form.get('password')
+        if not verify(userId,password):
+            return "unauthorized"
         newMatch = match(userId)
         matches.append(newMatch)
         return newMatch.match_id
     if name == "joinGame":
         userId = request.form.get('userId')
         matchId = request.form.get('matchId')
+        password = request.form.get('password')
+        if not verify(userId,password):
+            return "unauthorized"
         for i in matches:
             if i.match_id == matchId:
                 i.gamerB = userId
@@ -193,6 +204,9 @@ def api(name):
     if name == "chooseColor":
         userId = request.form.get('userId')
         matchId = request.form.get('matchId')
+        password = request.form.get('password')
+        if not verify(userId,password):
+            return "unauthorized"
         color = request.form.get('color')
         for i in matches:
             if i.match_id == matchId and userId in [i.gamerA, i.gamerB]:
@@ -215,6 +229,16 @@ def api(name):
                         print("white")
                         return "white"
                 return "0"
+    if name=="register":
+        userId = request.form.get('userId')
+        password = request.form.get('password')
+        if userdb.find_one({"username":userId}):
+            return "registered"
+        userdb.insert_one({
+            'username':userId,
+            'hash':hashlib.md5(password.encode()).hexdigest()
+        })
+        return "OK"
     return "1"
 
 
@@ -222,6 +246,9 @@ def api(name):
 def game(id, operation):
     if operation == "setChess":
         userId = request.form.get('userId')
+        password = request.form.get('password')
+        if not verify(userId,password):
+            return "unauthorized"
         matchId = id
         location = request.form.get('location')
         x = int(location.split(",")[0])
@@ -253,9 +280,13 @@ def game(id, operation):
             if id == i.match_id:
                 if i.finished:
                     return "FINISHED!"
-                return i.getPlayerNow()
+                return str(i.getPlayerNow())
         return "NotExist"
-
+    elif operation == "getForceBoard":
+        for i in matches:
+            if i.match_id == id:
+                return i.getChess()
+        return "NotExist"
 
 @app.route('/info')
 def info():
@@ -276,4 +307,4 @@ def info():
 
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(host="0.0.0.0",port=5000)
