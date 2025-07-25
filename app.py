@@ -11,6 +11,7 @@ app = Flask(__name__)
 db = mongo['db']
 userdb = db['users']
 
+
 class match:
     def __init__(self, gamerId):
         self.match_id = str(uuid.uuid4()).split("-")[0]
@@ -100,7 +101,6 @@ class match:
                 flag_positive += 1
 
         if flag_positive >= 4:
-            print("玩家", player, "获胜")
             return player
 
         # y = -x 方向判断：x++ y++
@@ -164,13 +164,26 @@ class match:
                         return "white"
         return False
 
-matches = []
 
-def verify(userId,password):
-    data = userdb.find_one({"username":userId})
+matches = []
+print(
+    f"""
+    Chess Server {VERSION}
+    Commit-2024-6-1-26efd3eb5031171ac6315146ccdb14d8d57b84e6
+    This Program is licensed under MIT License.
+    For more information, see the LICENSE file.
+    
+    This is a subproject of 5-Chess, a homework assignment for the Fundamentals of Programming (I) course 
+    at Nanjing University of Science and Technology.
+    See client at https://github.com/ExSaltedFishPro/5chess
+""")
+
+
+def verify(userId, password):
+    data = userdb.find_one({"username": userId})
     if not data:
         return 0
-    if data["hash"]==hashlib.md5(password.encode()).hexdigest():
+    if data["hash"] == hashlib.md5(password.encode()).hexdigest():
         return 1
     else:
         return 0
@@ -186,7 +199,7 @@ def api(name):
     if name == "newGame":
         userId = request.form.get('userId')
         password = request.form.get('password')
-        if not verify(userId,password):
+        if not verify(userId, password):
             return "unauthorized"
         newMatch = match(userId)
         matches.append(newMatch)
@@ -195,7 +208,7 @@ def api(name):
         userId = request.form.get('userId')
         matchId = request.form.get('matchId')
         password = request.form.get('password')
-        if not verify(userId,password):
+        if not verify(userId, password):
             return "unauthorized"
         for i in matches:
             if i.match_id == matchId:
@@ -205,7 +218,7 @@ def api(name):
         userId = request.form.get('userId')
         matchId = request.form.get('matchId')
         password = request.form.get('password')
-        if not verify(userId,password):
+        if not verify(userId, password):
             return "unauthorized"
         color = request.form.get('color')
         for i in matches:
@@ -222,21 +235,19 @@ def api(name):
                     if i.black_gamer == 0:
                         i.playerNow = userId
                         i.black_gamer = userId
-                        print("black")
                         return "black"
                     else:
                         i.white_gamer = userId
-                        print("white")
                         return "white"
                 return "0"
-    if name=="register":
+    if name == "register":
         userId = request.form.get('userId')
         password = request.form.get('password')
-        if userdb.find_one({"username":userId}):
+        if userdb.find_one({"username": userId}):
             return "registered"
         userdb.insert_one({
-            'username':userId,
-            'hash':hashlib.md5(password.encode()).hexdigest()
+            'username': userId,
+            'hash': hashlib.md5(password.encode()).hexdigest()
         })
         return "OK"
     return "1"
@@ -247,13 +258,12 @@ def game(id, operation):
     if operation == "setChess":
         userId = request.form.get('userId')
         password = request.form.get('password')
-        if not verify(userId,password):
+        if not verify(userId, password):
             return "unauthorized"
         matchId = id
         location = request.form.get('location')
         x = int(location.split(",")[0])
         y = int(location.split(",")[1])
-        print(location)
         for i in matches:
             if i.match_id == matchId:
                 return i.setChess(userId, x, y)
@@ -288,6 +298,7 @@ def game(id, operation):
                 return i.getChess()
         return "NotExist"
 
+
 @app.route('/info')
 def info():
     info = []
@@ -306,5 +317,6 @@ def info():
     return json.dumps(info)
 
 
+
 if __name__ == '__main__':
-    app.run(host="0.0.0.0",port=5000)
+    app.run(host="0.0.0.0", port=5000)
